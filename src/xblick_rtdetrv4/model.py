@@ -89,46 +89,26 @@ def postprocess(labels: np.ndarray, boxes: np.ndarray, scores: np.ndarray, frame
 
 class Detector:
     """One RT-DETRv4 model in ONNX Runtime, ``threads`` CPU threads for one frame at a time; ``device`` ``cpu``, or
-    ``cuda:N`` (ONNX Runtime's CUDA provider on GPU N, which the onnxruntime-gpu package brings: without it an
-    error, never the CPU instead)."""
+    ``cuda:N`` (every part of the model on GPU N, with the shared GPU runtime of runtime.py: without it an error,
+    never the CPU instead)."""
 
     def __init__(self, path: Path, threads: int, device: str = "cpu"):
         self.size = INPUT_SIZE
         self.session = self._load(path, threads, device)
 
     def _load(self, path: Path, threads: int, device: str):
-        import onnxruntime as ort  # noqa: PLC0415 - loaded with the model
+        from . import runtime, weights  # noqa: PLC0415 - loaded with the model
 
-        options = ort.SessionOptions()
-        options.intra_op_num_threads = threads  # the threads for one model call
-        options.inter_op_num_threads = 1  # one call at a time
-        options.execution_mode = ort.ExecutionMode.ORT_SEQUENTIAL
-        options.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL
-        # the threads sleep between frames (a notebook's battery) instead of spinning while they wait for work
-        options.add_session_config_entry("session.intra_op.allow_spinning", "0")
-        providers = ["CPUExecutionProvider"]
-        if device != "cpu":
-            if "CUDAExecutionProvider" not in ort.get_available_providers():
-                raise RuntimeError(f"--device {device}: this onnxruntime has no CUDA provider (it has "
-                                   f"{', '.join(ort.get_available_providers())}); install onnxruntime-gpu in its "
-                                   "place, or use --device cpu")
-            # CUDA and cuDNN of the nvidia-* wheels that onnxruntime-gpu[cuda,cudnn] installs (else the system's)
-            ort.preload_dlls()
-            providers = [("CUDAExecutionProvider", {"device_id": int(device.split(":")[1])}), "CPUExecutionProvider"]
-        session = ort.InferenceSession(str(path), sess_options=options, providers=providers)
-        if device != "cpu" and session.get_providers()[0] != "CUDAExecutionProvider":
-            raise RuntimeError(f"--device {device}: ONNX Runtime could not use the GPU ({session.get_providers()})")
+        session, printed = runtime.open_session(path, threads, device, weights.PROG, weights.FORMER_GPU_RUNTIME)
         inputs = {i.name: list(i.shape) for i in session.get_inputs()}
         outputs = [o.name for o in session.get_outputs()]
         expected = {"images": [1, 3, self.size, self.size], "orig_target_sizes": [1, 2]}
         if inputs != expected or outputs != ["labels", "boxes", "scores"]:
             raise ValueError(f"{path}: inputs {inputs} and outputs {outputs}, expected {expected} and labels, boxes, "
                              "scores (an RT-DETRv4 ONNX file of this node's export)")
-        if device != "cpu":  # a GPU that loads but cannot compute (no cuDNN) fails here, at the start
-            try:
-                self._run(session, *preprocess(np.zeros((self.size, self.size, 3), np.uint8), self.size))
-            except Exception as error:  # noqa: BLE001 - ONNX Runtime's errors: one line for the user
-                raise RuntimeError(f"--device {device}: ONNX Runtime failed on the GPU: {str(error)[:300]}") from None
+        if device != "cpu":
+            images, sizes = preprocess(np.zeros((self.size, self.size, 3), np.uint8), self.size)
+            runtime.trial(session, {"images": images, "orig_target_sizes": sizes}, device, printed)
         return session
 
     @staticmethod

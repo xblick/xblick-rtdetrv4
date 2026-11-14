@@ -56,6 +56,11 @@ def test_options_and_their_fixed_defaults():
             node.make_parser().parse_args(["--camera", CAM, *bad])
 
 
+def test_the_start_line_says_where_the_model_computes():
+    assert node.where_it_computes("cpu", 4) == "model on the CPU with 4 threads"
+    assert node.where_it_computes("cuda:0", 4) == "model on cuda:0; scaling, filtering and drawing on the CPU"
+
+
 def test_a_missing_camera_option_ends_with_one_line(capsys):
     with pytest.raises(SystemExit) as exit_:
         node.main([])

@@ -24,6 +24,7 @@ from xblick import weights
 
 PROG = "xblick-rtdetrv4"
 NODE = "rtdetrv4"  # the short name: its cache directory is ~/.cache/xblick/rtdetrv4
+FORMER_GPU_RUNTIME = []  # earlier places of a GPU runtime of this node: none (it never had its own)
 REPO = Path(__file__).resolve().parents[2]
 UPSTREAM = "https://github.com/AIMIA-PKU/RT-DETRv4"
 COMMIT = "55fefaaed7efe2a5f72d0a18fd4e05965e35c292"  # main on 2026-11-14

@@ -120,10 +120,10 @@ def make_parser() -> argparse.ArgumentParser:
                              "\"cell phone\" (default: all 80)")
     drawn.add_argument(parser)  # --overlay: <camera>/<node>/overlay, off by default
     parser.add_argument("--threads", type=int, default=4,
-                        help="CPU threads for the model (ONNX Runtime's intra-op threads) (default: 4)")
+                        help="CPU threads for the model on the CPU (ONNX Runtime's intra-op threads) (default: 4)")
     parser.add_argument("--device", type=parse_device, default="cpu",
-                        help="cpu, or cuda (GPU 0) or cuda:N with the onnxruntime-gpu package; a GPU that cannot be "
-                             "used is an error (default: cpu)")
+                        help="cpu, or cuda (GPU 0) or cuda:N with the shared GPU runtime (tools/setup.sh); a GPU "
+                             "that cannot be used is an error (default: cpu)")
     parser.add_argument("--color", default=None, help="the colour stream (default <camera>/color)")
     parser.add_argument("--node", default="rtdetrv4", help="the results' part of the topic: <camera>/<node>/...")
     store.add_arguments(parser)  # --download-only (a mode of the command line), --no-download, --weights-dir
@@ -141,11 +141,19 @@ def draw(rgb: np.ndarray, found) -> np.ndarray:
                             [drawn.colour(int(label)) for label in found.labels])
 
 
+def where_it_computes(device: str, threads: int) -> str:
+    """The start line's part on where the work runs: the model, and on a GPU what stays on the CPU."""
+    if device == "cpu":
+        return f"model on the CPU with {threads} threads"
+    return f"model on {device}; scaling, filtering and drawing on the CPU"
+
+
 def load_detector(path, threads: int, device: str):
     """The model (model.Detector); tests replace this function by a stand-in."""
     from .model import Detector  # noqa: PLC0415 - loads ONNX Runtime
+    from .runtime import prepare  # noqa: PLC0415
 
-    return Detector(path, threads, device)
+    return prepare(lambda: Detector(path, threads, device), device, weights.PROG)
 
 
 def main(argv=None) -> int:
@@ -206,7 +214,7 @@ def main(argv=None) -> int:
     report.watch(color)
     outputs = "detections_2d" + (",overlay" if overlay is not None else "")
     print(f"xblick-rtdetrv4: {color_base} -> {camera}/{args.node}/{{{outputs}}}: {NAMES[args.model]} "
-          f"({INPUT_SIZE} x {INPUT_SIZE}) on {args.device}, {args.threads} CPU threads", flush=True)
+          f"({INPUT_SIZE} x {INPUT_SIZE}), {where_it_computes(args.device, args.threads)}", flush=True)
     counts = report.counts
     last = None  # the stamp of the last frame processed
     applied = (None, None)  # (classes as given, their indices)

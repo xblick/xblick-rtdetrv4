@@ -62,6 +62,9 @@ checkpoints.
 tools/setup.sh
 ```
 
+On a PC with an NVIDIA GPU the script also installs the GPU runtime for `--device cuda` (2.4 GB), unless you add
+`--no-gpu`. [On a GPU](#on-a-gpu) describes the rule.
+
 The script creates `.venv` exactly as `uv.lock` states. It installs ONNX Runtime for the CPU, Durchblick from PyPI
 and the extra `export`: PyTorch for the CPU and the packages that RT-DETRv4's code imports. Then it runs
 `xblick-rtdetrv4 --download-only`, which prepares RT-DETRv4-S in `~/.cache/xblick/rtdetrv4/`.
@@ -131,18 +134,45 @@ the next start.
 
 ## On a GPU
 
-`uv.lock` installs ONNX Runtime for the CPU. For a GPU, replace it in `.venv` by `onnxruntime-gpu` with NVIDIA's CUDA
-13 and cuDNN 9 libraries from PyPI (2.5 GB):
+ONNX Runtime for a GPU is a package of its own, `onnxruntime-gpu`, which cannot sit in `.venv` beside the CPU
+package: both install the Python package `onnxruntime`, and `uv run` and `uv sync` bring the CPU package back. The
+GPU runtime therefore lives outside `.venv`, in one directory that every Durchblick node with ONNX Runtime shares:
 
-```bash
-uv pip uninstall --python .venv/bin/python onnxruntime
-uv pip install --python .venv/bin/python "onnxruntime-gpu[cuda,cudnn]==1.32.0"
-.venv/bin/xblick-rtdetrv4 --camera test/camera --overlay --device cuda
+```
+~/.cache/xblick/onnxruntime/gpu-1.32.0-cp312/      (onnxruntime-gpu version, Python version)
 ```
 
-`tools/setup.sh` installs the CPU package again, because it restores `.venv` as `uv.lock` states. A GPU that ONNX
-Runtime cannot use ends the start with one line. The node never falls back to the CPU. The export of the ONNX file
-always runs on the CPU.
+`tools/setup.sh` installs it when the PC has an NVIDIA GPU. The rule: `nvidia-smi` runs, exits 0 and lists at least
+one GPU. Before the download the script prints the GPUs it found, what it installs and where, and how to skip it. The
+runtime is `onnxruntime-gpu` 1.32.0 with NVIDIA's CUDA 13 and cuDNN 9 libraries from PyPI (2.4 GB). A second call, or
+another node that installed it already, reuses it. `uv run`, `uv sync` and `tools/setup.sh` leave it as it is.
+
+| Case | What `tools/setup.sh` does |
+| --- | --- |
+| no `nvidia-smi`, or it fails or lists no GPU | one line: the node computes on the CPU, `tools/setup.sh --gpu` adds the runtime later |
+| a GPU with a driver older than 580 | one line: the runtime needs driver 580 or newer and was not installed |
+| a GPU with driver 580 or newer | installs the runtime, or reuses it |
+| `--gpu` | installs the runtime whatever the check says (an image built on a PC without a GPU) |
+| `--no-gpu` | never installs it |
+
+Requirements of the GPU runtime: an NVIDIA driver 580 or newer (CUDA 13), a GPU that CUDA 13 supports (Turing, RTX
+20 series, or newer), Python 3.11 or newer (onnxruntime-gpu 1.32.0 has no wheel for 3.10). NVIDIA's libraries come as
+wheels, so the PC needs no CUDA installation.
+
+```bash
+uv run xblick-rtdetrv4 --camera test/camera --overlay --device cuda
+```
+
+With `--device cuda` the node loads ONNX Runtime from the shared directory, and every part of the model runs on the
+GPU. A model that the GPU cannot run whole is an error, never a silent switch to the CPU. Scaling the frame, filtering the results and the overlay's drawing stay on the CPU. The export of the ONNX file always runs on the CPU, in a process of its own. The start
+prints "preparing the GPU" at once, then the start line, for example "model on cuda:0; ... on the CPU". Loading CUDA
+and the first computation can take a while on the first start. Ctrl-C and SIGTERM end the node during that time too.
+
+Without the GPU runtime, `--device cuda` ends the start with one line that names `tools/setup.sh --gpu`. When CUDA
+cannot be loaded, for example with an older driver, the line gives ONNX Runtime's message and the libraries that failed
+to load. With `--device cuda:1` or another GPU than 0, ONNX Runtime 1.32 prints one warning, "No registered plugin EP
+device found for 'CUDAExecutionProvider' with device_id=1". It is harmless: ONNX Runtime then uses its CUDA provider
+as usual.
 
 ## Which model
 

@@ -23,6 +23,9 @@ XBLICK_RTDETRV4_TEST_GPU=cuda:0 .venv/bin/python -m pytest -q tests/test_model.p
 
 ## Rules
 
+- `runtime.py` and `tests/test_runtime.py` are the same in every ONNX Runtime node (xblick-yolox, xblick-rtdetrv4):
+  change them in all. The GPU runtime lives outside the venv in `~/.cache/xblick/onnxruntime/gpu-<version>-cp<XY>`;
+  never swap onnxruntime for onnxruntime-gpu in `.venv` (`uv run` restores the CPU package over it).
 - Files: everything in the node's cache directory (`xblick.paths.cache_dir("rtdetrv4")`, `~/.cache/xblick/rtdetrv4`),
   never in the checkout: the checkpoint, the source archive and its unpacked directory, the ONNX file and its record.
   `store = weights.store_for(parser, args)` (`--weights-dir`); `export.ensure_onnx(store, model, ...)` is the one
@@ -58,6 +61,7 @@ XBLICK_RTDETRV4_TEST_GPU=cuda:0 .venv/bin/python -m pytest -q tests/test_model.p
 
 | Path | Content |
 | --- | --- |
+| `src/xblick_rtdetrv4/runtime.py` | ONNX Runtime sessions (CPU, GPU), the shared GPU runtime (`setup`, `install`, `detect`, `onnxruntime_for`, `prepare`); the same file in every ONNX Runtime node |
 | `src/xblick_rtdetrv4/model.py` | `preprocess`, `postprocess`, `Detector`, `COCO_CLASSES`, `INPUT_SIZE`, `TOP` |
 | `src/xblick_rtdetrv4/export.py` | `ensure_onnx`, `download_only`, `check_made`, `unpack`, `child_command`, the child (`export`, `compare`) |
 | `src/xblick_rtdetrv4/node.py` | options, the loop, publishing, `draw` (the overlay), diagnostics |
