@@ -1,0 +1,57 @@
+[project]
+name = "xblick-rtdetrv4"
+version = "0.1.0"
+description = "RT-DETRv4 (real-time object detector, COCO's 80 classes) as a Durchblick node, with ONNX Runtime on the CPU or a GPU"
+readme = "README.md"
+license = "Apache-2.0"
+license-files = ["LICENSE", "NOTICE"]
+authors = [{ name = "David Schneider" }]
+requires-python = ">=3.10,<3.14"  # the core's wheels: CPython 3.10 to 3.13
+dependencies = [
+    "xblick>=0.5.5,<0.6",  # the Durchblick core: node, history, parameters, weights, overlay, Detection2DArray
+    "onnxruntime>=1.20",  # the model, on the CPU
+    "numpy>=1.26",
+    "pillow>=10.1",  # resizing and the overlay's drawing (also a dependency of the core)
+]
+
+[project.optional-dependencies]
+# the ONNX file's export from RT-DETRv4's checkpoint (export.py): PyTorch and what RT-DETRv4's code imports (its
+# requirements.txt). Tested with torch 2.8; torch 2.9 changed torch.onnx.export's default exporter.
+export = [
+    "torch>=2.8,<2.9",
+    "torchvision>=0.23,<0.24",
+    "onnx>=1.16",  # torch.onnx.export writes the file with it
+    "pyyaml>=6",
+    "scipy>=1.11",
+    "tensorboard>=2.15",
+    "faster-coco-eval>=1.6.5",
+    "calflops>=0.3",
+    "transformers>=4.40",
+]
+
+[project.scripts]
+xblick-rtdetrv4 = "xblick_rtdetrv4.node:main"
+
+[dependency-groups]
+dev = ["pytest>=8", "ruff>=0.6"]
+
+[build-system]
+requires = ["uv_build>=0.8,<0.12"]
+build-backend = "uv_build"
+
+[tool.uv.sources]
+# PyTorch for the CPU: the export runs on the CPU, and PyPI's torch brings CUDA libraries of 3 GB
+torch = { index = "pytorch-cpu" }
+torchvision = { index = "pytorch-cpu" }
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]

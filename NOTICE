@@ -1,0 +1,25 @@
+xblick-rtdetrv4
+Copyright 2026 David Schneider
+
+This product is licensed under the Apache License, Version 2.0 (see LICENSE).
+
+Parts of others:
+
+- RT-DETRv4 by Zijun Liao, Yian Zhao, Xin Shan, Yu Yan, Chang Liu, Lei Lu, Xiangyang Ji and Jie Chen
+  (github.com/AIMIA-PKU/RT-DETRv4), Copyright (c) 2025 The RT-DETRv4 Authors, Apache License 2.0. Its code builds on
+  RT-DETR (Copyright (c) 2023 lyuwenyu), D-FINE (Copyright (c) 2024 The D-FINE Authors) and DEIM (Copyright (c) 2024
+  The DEIM Authors), and some of its files carry the copyright line of Facebook, Inc.; each file keeps its lines.
+  This repository contains no file and no copied code of RT-DETRv4. The node downloads RT-DETRv4's source at a fixed
+  commit and its checkpoints into its cache directory (~/.cache/xblick/rtdetrv4) and runs the source there to make
+  an ONNX file from a checkpoint. src/xblick_rtdetrv4/export.py follows the steps of RT-DETRv4's
+  tools/deployment/export_onnx.py and is written anew. The pre- and post-processing in src/xblick_rtdetrv4/model.py
+  follow the input and output format of that export and RT-DETRv4's evaluation transforms; they are written anew in
+  numpy. The 80 class names are those of the COCO dataset.
+- The checkpoints were trained with Meta's DINOv3 as a teacher (DINOv3 License,
+  github.com/facebookresearch/dinov3). DINOv3 itself is neither part of this repository nor downloaded or run by
+  the node. README.md, "Requirements", states what is known about the checkpoints' terms.
+- ONNX Runtime by Microsoft, MIT License. It is a Python dependency. PyTorch (BSD-3-Clause) and the packages of the
+  extra export are Python dependencies of the export only.
+- tests/data/office.png is a frame of the sequence freiburg3_long_office_household of the TUM RGB-D dataset of the
+  Technical University of Munich, under the Creative Commons Attribution 4.0 International licence (CC BY 4.0,
+  https://creativecommons.org/licenses/by/4.0/).
