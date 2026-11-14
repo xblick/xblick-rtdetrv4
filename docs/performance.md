@@ -32,7 +32,8 @@ On the GPU, about 2 ms of each frame are the resizing to 640 x 640 and the conve
 measurement did not limit the CPU cores.
 
 By these numbers, S is the model for a PC without a GPU: 19 frames per second at most on 4 threads. M reaches 10
-frames per second. L and X reach 7.5 and 4, which suits only scenes that change slowly.
+frames per second. L and X reach 7.5 and 4, which suits only scenes that change slowly. The node itself reaches
+less than its model alone on the CPU, see "End to end".
 
 ## The export
 
@@ -49,6 +50,30 @@ times include unpacking the source for the first model and the check against PyT
 RT-DETRv4's own `tools/deployment/export_onnx.py` needed 32.1 GB of memory for the S model, because it traces a batch
 of 32 frames. The node's export traces one frame. [How the node works](design.md#the-onnx-file) lists the other
 differences. Two exports of S with PyTorch 2.8.0 gave the same file, byte for byte.
+
+## End to end
+
+`xblick test-camera --fps 30` published 640 x 480 frames, and the node ran as its own process for 20 to 25 s, stopped
+by SIGTERM. The node reports "ms a frame" for its whole work on a frame, including the colour conversion and the
+publishing. The table gives the node's last report lines. The CPU rows ran one after another within 10 minutes.
+
+| Model | Device | Cores, threads | Frames per second | ms a frame in the node |
+| --- | --- | --- | --- | --- |
+| s | CPU | 0-3, 4 | 11.7 to 15.2 | 66 to 85 |
+| s | CPU | 0-5, 4 | 10.9 to 11.2 | 89 to 92 |
+| s | CPU | 0-3, 3 | 9.4 to 12.3 | 82 to 106 |
+| s | GPU | not limited | 30.3 | 21 |
+| m | GPU | not limited | 30.0 | 14 |
+| l | GPU | not limited | 29.9 | 13 |
+| x | GPU | not limited | 29.9 | 17 |
+
+On the GPU every model kept up with the camera. On the CPU the node needed 66 to 106 ms a frame, against 52 ms in
+`tools/bench.py`. Two more cores did not help. We have not found the cause. Other users' jobs ran on the same cores,
+and the numbers changed by a third between two runs of the same setting.
+
+A replay of `office.png` at 10 frames per second, with `--overlay` and `xblick view` subscribed, gave 10.0 frames per
+second and 89 ms a frame for S on 4 cores. M on another 4 cores, at the same time, reached 8.9 frames per second
+against the 15 Hz test camera (112 ms a frame).
 
 ## Settings
 

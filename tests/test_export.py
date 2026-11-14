@@ -4,6 +4,8 @@ tested with the real checkpoints (README, docs/performance.md)."""
 
 import io
 import json
+import signal
+import subprocess
 import sys
 import tarfile
 from pathlib import Path
@@ -104,3 +106,40 @@ def test_the_export_extra_brings_every_package_the_child_imports():
              ["export"]}
     assert set(export.EXPORT_MODULES.values()) - {"onnxruntime"} == extra
     assert "onnxruntime" in pyproject["project"]["dependencies"][1]  # a dependency of the node itself
+
+
+# a process that makes rtdetrv4_s.onnx with a stand-in child, which writes its partial file and then waits
+INTERRUPTED = """
+import hashlib, sys
+from pathlib import Path
+from xblick import weights as store
+from xblick_rtdetrv4 import export, weights
+root = Path(sys.argv[1])
+data = b"checkpoint"
+(root / weights.checkpoint_name("s")).write_bytes(data)
+(root / f"RT-DETRv4-{weights.COMMIT}" / "engine").mkdir(parents=True)  # unpacked already
+weights.MODELS["s"] = ("id", len(data), hashlib.sha256(data).hexdigest())
+code = (root / weights.code_name())
+code.write_bytes(b"code")
+weights.CODE = ("url", 4, hashlib.sha256(b"code").hexdigest())
+export.missing_modules = lambda: []
+CHILD = ("import sys, time; open(sys.argv[1] + '.part', 'w').write('x'); "
+         "print('child: started', flush=True); time.sleep(60)")
+export.child_command = lambda code, model, checkpoint, onnx: [sys.executable, "-c", CHILD, str(onnx)]
+sys.exit(export.download_only(store.Store(weights.PROG, root, weights.TERMS), "s"))
+"""
+
+
+def test_sigterm_while_the_child_exports_ends_both_and_leaves_no_partial_file(tmp_path):
+    process = subprocess.Popen([sys.executable, "-c", INTERRUPTED, str(tmp_path)], stdout=subprocess.PIPE,
+                               stderr=subprocess.PIPE, text=True)
+    lines = []
+    for line in process.stdout:
+        lines.append(line)
+        if "child: started" in line:
+            break
+    assert (tmp_path / "rtdetrv4_s.onnx.part").exists(), lines
+    process.send_signal(signal.SIGTERM)
+    assert process.wait(timeout=20) == 143
+    assert "stopped (SIGTERM) while making rtdetrv4_s.onnx; no partial file kept" in process.stderr.read()
+    assert not list(tmp_path.glob("rtdetrv4_s.onnx*"))

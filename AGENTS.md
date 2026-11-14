@@ -52,7 +52,7 @@ XBLICK_RTDETRV4_TEST_GPU=cuda:0 .venv/bin/python -m pytest -q tests/test_model.p
 | `HGNetv2.pretrained` | True in the configs: the backbone would download ImageNet weights. | The export sets it False; the checkpoint has every weight. |
 | Resize | RT-DETRv4 evaluates on the frame stretched to 640 x 640; its `onnx_inf.py` letterboxes instead. | `preprocess` stretches, as the evaluation and `torch_inf.py`. |
 | Google Drive | `drive.usercontent.google.com/download?...&confirm=t` gives the file without the warning page. A Drive quota can refuse downloads for a while. | `weights.DRIVE`. |
-| SIGINT in scripts | A background job of a script has SIGINT ignored; the core restores it for `xblick` commands, not in `node.start`. | Stop the node by PID with SIGTERM. |
+| ORT warning on a GPU | onnxruntime-gpu 1.32 prints "No registered plugin EP device found for 'CUDAExecutionProvider'" at load. The session still runs on CUDA (the node checks the providers; 4 ms per frame for S). | None needed. |
 
 ## Layout
 

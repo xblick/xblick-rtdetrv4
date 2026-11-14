@@ -42,7 +42,7 @@ exists. Without `--overlay` the stream does not exist at all.
 | Durchblick | 0.5.5 or newer, below 0.6 (Python package `xblick`) |
 | Python | 3.10 to 3.13, which `tools/setup.sh` puts into `.venv` |
 | Tools for the setup | uv |
-| Disk | 0.5 GB for `.venv` with the export's packages. Per model, the checkpoint and the ONNX file: 0.2 GB (S), 0.4 GB (M), 0.6 GB (L) or 1.3 GB (X). |
+| Disk | 1.3 GB for `.venv` with the export's packages. Per model, the checkpoint and the ONNX file: 0.2 GB (S), 0.4 GB (M), 0.6 GB (L) or 1.3 GB (X). |
 
 Model licences:
 
@@ -158,9 +158,10 @@ limited to 4 cores, and on one RTX PRO 6000, as medians (2026-11-14).
 | l | 55.4 | 124 MB | 505 MB | 133 | 9.0 |
 | x | 57.0 | 248 MB | 1010 MB | 255 | 10.9 |
 
-Without a GPU, take S. It handles up to 19 frames per second on 4 threads, and M handles 10. L and X need 133 and
-255 ms per frame on the CPU, which suits only scenes that change slowly. On a GPU every model keeps up with a camera
-at 30 frames per second. [Speed](docs/performance.md) has the setup and the node's rate end to end.
+Without a GPU, take S. Its model alone allows 19 frames per second on 4 threads, and the node reached 10 to 15 on
+our shared PC. M reaches about 9. L and X need 133 and 255 ms per frame on the CPU, which suits only scenes that
+change slowly. On a GPU each of the four models kept up with a test camera at 30 frames per second.
+[Speed](docs/performance.md) has the setup and the node's rate end to end.
 
 ## Limits
 
@@ -169,8 +170,6 @@ at 30 frames per second. [Speed](docs/performance.md) has the setup and the node
 - The export needs PyTorch 2.8. We have not tested the exporter of PyTorch 2.9 and newer.
 - Google Drive can refuse downloads of a file for a while when many people download it. The download then fails
   with an HTTP error. Start again later, or copy the cache from a PC that has the model.
-- In a shell script, Ctrl-C (SIGINT) does not end the node when the script started it in the background. SIGTERM
-  does.
 - RT-DETRv4 knows only COCO's 80 classes. It does not track, so a detection has no id.
 - The node runs on Linux on x86-64, because the core's wheels exist only there.
 

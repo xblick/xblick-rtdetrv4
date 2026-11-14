@@ -26,9 +26,11 @@ import importlib.util
 import json
 import os
 import shutil
+import signal
 import subprocess
 import sys
 import tarfile
+import threading
 import time
 import warnings
 from pathlib import Path
@@ -102,20 +104,34 @@ def ensure_onnx(store: store_lib.Store, model: str, *, download: bool = True, ve
               f"(commit {weights.COMMIT[:12]}) on the CPU, about a minute", file=out, flush=True)
         started = time.monotonic()
         child = subprocess.Popen(child_command(code, model, checkpoint, onnx), stderr=subprocess.STDOUT)
+        main = threading.current_thread() is threading.main_thread()
+        previous = signal.signal(signal.SIGTERM, _terminate) if main else None
         try:
             status = child.wait()
-        except BaseException as error:  # Ctrl-C or SIGTERM (node.start): the child goes too, its partial file with it
+        except (KeyboardInterrupt, _Terminated) as error:  # Ctrl-C or SIGTERM: the child goes too, its file with it
             child.terminate()
             child.wait()
-            if isinstance(error, KeyboardInterrupt):
-                raise store_lib.WeightsError(f"stopped while making {onnx.name}; no partial file kept", 130) from None
-            raise
+            onnx.with_name(onnx.name + ".part").unlink(missing_ok=True)  # SIGTERM skips the child's own cleanup
+            how, exit_code = ("Ctrl-C", 130) if isinstance(error, KeyboardInterrupt) else ("SIGTERM", 143)
+            raise store_lib.WeightsError(f"stopped ({how}) while making {onnx.name}; no partial file kept",
+                                         exit_code) from None
+        finally:
+            if main:
+                signal.signal(signal.SIGTERM, previous)
         if status != 0 or not onnx.is_file():
             raise store_lib.WeightsError(f"the export of {onnx.name} failed (exit code {status}, its output above)")
         check_made(onnx, model, verify=True)
         print(f"{weights.PROG}: {onnx.name} made and checked in {time.monotonic() - started:.0f} s", file=out,
               flush=True)
     return onnx
+
+
+class _Terminated(BaseException):
+    """SIGTERM while the child exports (a BaseException: no ``except Exception`` on the way swallows it)."""
+
+
+def _terminate(signum, frame):
+    raise _Terminated
 
 
 def child_command(code: Path, model: str, checkpoint: Path, onnx: Path) -> list[str]:
