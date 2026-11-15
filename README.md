@@ -219,3 +219,17 @@ under the Apache License 2.0. "Requirements" lists what is known about its check
 
 The code of this repository is under the Apache License 2.0, see [LICENSE](LICENSE). [NOTICE](NOTICE) names the
 copyright holder and the parts of others, among them the test image of the TUM RGB-D dataset (CC BY 4.0).
+
+## Citation
+
+This node uses RT-DETRv4 (AIMIA-PKU/RT-DETRv4). If you use it in research, cite their work. The entries below are copied
+from [its README](https://github.com/AIMIA-PKU/RT-DETRv4/blob/55fefaaed7efe2a5f72d0a18fd4e05965e35c292/README.md):
+
+```bibtex
+@article{liao2025rtdetrv4,
+  title={RT-DETRv4: Painlessly Furthering Real-Time Object Detection with Vision Foundation Models},
+  author={Zijun Liao and Yian Zhao and Xin Shan and Yu Yan and Chang Liu and Lei Lu and Xiangyang Ji and Jie Chen},
+  journal={arXiv preprint arXiv:2510.25257},
+  year={2025}
+}
+```
