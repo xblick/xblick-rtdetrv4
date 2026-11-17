@@ -42,6 +42,7 @@ XBLICK_RTDETRV4_TEST_GPU=cuda:0 .venv/bin/python -m pytest -q tests/test_model.p
 - `model.py` follows the export's format (inputs `images`, `orig_target_sizes`; outputs `labels`, `boxes`, `scores`);
   keep `tests/test_model.py` green after any change of resize or selection.
 - Durchblick pin: `xblick>=0.5.5,<0.6`. Dependencies from PyPI, PyTorch from its CPU index (`tool.uv.sources`).
+  Branch `ros2`: the core from its git branch `ros2` (`--ros`), until a release has it.
 - 120 columns. Docstrings say what, comments say why. Update `README.md` and `docs/` with every change of behaviour.
 
 ## Traps
