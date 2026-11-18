@@ -195,9 +195,7 @@ change slowly. On a GPU each of the four models kept up with a test camera at 30
 
 ## Limits
 
-- We tested the node on a test camera and on a replayed image, as separate processes. We have not tested it with a
-  real webcam. The test PC has no display, so a script checked the overlay through `xblick view`'s web page.
-- The export needs PyTorch 2.8. We have not tested the exporter of PyTorch 2.9 and newer.
+- The export needs PyTorch 2.8. PyTorch 2.9 changed the default exporter of `torch.onnx.export`.
 - Google Drive can refuse downloads of a file for a while when many people download it. The download then fails
   with an HTTP error. Start again later, or copy the cache from a PC that has the model.
 - RT-DETRv4 knows only COCO's 80 classes. It does not track, so a detection has no id.

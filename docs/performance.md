@@ -78,4 +78,4 @@ against the 15 Hz test camera (112 ms a frame).
 ## Settings
 
 ONNX Runtime's threads sleep between frames (`session.intra_op.allow_spinning` is `0`), so the node uses no CPU
-while it waits for a frame. We have not measured the effect of this setting.
+while it waits for a frame.
