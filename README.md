@@ -40,9 +40,9 @@ exists. Without `--overlay` the stream does not exist at all.
 | GPU | none. An NVIDIA GPU is optional, see "On a GPU". |
 | Memory | 0.9 GB (S) to 2.6 GB (X) while the node makes the ONNX file, once per model |
 | Durchblick | 0.5.5 or newer, below 0.6 (Python package `xblick`) |
-| Python | 3.10 to 3.13, which `tools/setup.sh` puts into `.venv` |
-| Tools for the setup | uv |
-| Disk | 1.3 GB for `.venv` with the export's packages. Per model, the checkpoint and the ONNX file: 0.2 GB (S), 0.4 GB (M), 0.6 GB (L) or 1.3 GB (X). |
+| Python | 3.10 to 3.13, which uv installs with the node |
+| Tools for the install | uv and git |
+| Disk | 1.3 GB for the node's environment with the export's packages. Per model, the checkpoint and the ONNX file: 0.2 GB (S), 0.4 GB (M), 0.6 GB (L) or 1.3 GB (X). |
 
 Model licences:
 
@@ -58,6 +58,29 @@ checkpoints.
 
 ## Install
 
+Install the node with uv, or clone this repository for development.
+
+### With uv
+
+```bash
+uv tool install "xblick-rtdetrv4[export] @ git+https://github.com/xblick/xblick-rtdetrv4"
+xblick-rtdetrv4 --download-only
+```
+
+uv puts `xblick-rtdetrv4` on PATH, in an environment of its own, with ONNX Runtime for the CPU, the extra `export`
+(PyTorch for the CPU and the packages that RT-DETRv4's code imports) and a Python 3.10 to 3.13 that uv finds or
+downloads. It resolves the dependencies afresh within the bounds of `pyproject.toml`: `uv.lock` applies only to a
+clone. `xblick-rtdetrv4 --download-only` prepares RT-DETRv4-S in `~/.cache/xblick/rtdetrv4/`, in the two steps
+below. `--model x` prepares another model. For `--device cuda`, add the GPU runtime as [On a GPU](#on-a-gpu) shows.
+
+`uv tool upgrade xblick-rtdetrv4` updates the node to the newest commit of this repository and the dependencies
+within their bounds. `uv tool uninstall xblick-rtdetrv4` removes the node. The models and the GPU runtime stay in the
+cache directory. The `xblick` command under [Run](#run) is the core's: `uv tool install xblick` puts it on PATH.
+
+### From a clone
+
+For development, and for the versions that `uv.lock` fixes:
+
 ```bash
 tools/setup.sh
 ```
@@ -66,15 +89,15 @@ On a PC with an NVIDIA GPU the script also installs the GPU runtime for `--devic
 `--no-gpu`. [On a GPU](#on-a-gpu) describes the rule.
 
 The script creates `.venv` exactly as `uv.lock` states. It installs ONNX Runtime for the CPU, Durchblick from PyPI
-and the extra `export`: PyTorch for the CPU and the packages that RT-DETRv4's code imports. Then it runs
-`xblick-rtdetrv4 --download-only`, which prepares RT-DETRv4-S in `~/.cache/xblick/rtdetrv4/`.
+and the extra `export`. Then it runs `xblick-rtdetrv4 --download-only`, which prepares RT-DETRv4-S in
+`~/.cache/xblick/rtdetrv4/`. `tools/setup.sh --model x` prepares another model. The script does only what is missing.
+
+### What the preparation does
 
 1. It downloads the checkpoint (169 MB) from RT-DETRv4's Google Drive link and RT-DETRv4's source (5 MB) at a fixed
    commit from GitHub. It checks the size and the SHA-256 of both.
 2. It makes the ONNX file (42 MB) from them on the CPU, in about 25 s. It checks the file against PyTorch on a test
    frame.
-
-`tools/setup.sh --model x` prepares another model. The script does only what is missing.
 
 The node also prepares a missing model at its start. A machine that must never start a download on its own starts
 the node with `--no-download`. The node then ends at once when a download is needed, and it names the command. Once
@@ -93,20 +116,21 @@ The node needs it again only to make the ONNX file anew.
 
 ## Run
 
-Start a router, a camera, the node and a viewer, each in its own terminal. The camera name is an example.
+Start a router, a camera, the node and a viewer, each in its own terminal. The camera name is an example. In a clone
+the commands are in `.venv/bin/`.
 
 ```bash
-.venv/bin/xblick router                                  # the Zenoh router of this PC
-.venv/bin/xblick test-camera                             # a test pattern on test/camera/color
-.venv/bin/xblick-rtdetrv4 --camera test/camera --overlay
+xblick router                                  # the Zenoh router of this PC
+xblick test-camera                             # a test pattern on test/camera/color
+xblick-rtdetrv4 --camera test/camera --overlay
 # on a PC with an NVIDIA GPU: add --device cuda (see "On a GPU")
-.venv/bin/xblick view test/camera/color test/camera/rtdetrv4/overlay
+xblick view test/camera/color test/camera/rtdetrv4/overlay
 ```
 
 `xblick view` opens VLC, or offers the browser view at `http://127.0.0.1:8090/`. The test pattern has no objects
 in it. A webcam has: `xblick cam /dev/video0` publishes `cam/video0/color`, and `--camera cam/video0` takes it.
-`xblick cam` needs the core's `cam` extra, which `.venv` does not have and `tools/setup.sh` does not install.
-Install it separately for `xblick cam`: `pip install "xblick[cam]"`.
+`xblick cam` needs the core's `cam` extra, which neither install of the node brings. `uv tool install "xblick[cam]"`
+installs the core's command with it.
 
 | Option | Default | Meaning |
 | --- | --- | --- |
@@ -155,12 +179,19 @@ another node that installed it already, reuses it. `uv run`, `uv sync` and `tool
 | `--gpu` | installs the runtime whatever the check says (an image built on a PC without a GPU) |
 | `--no-gpu` | never installs it |
 
+After an install with uv, this command installs the runtime by the same rule. `--mode on` stands for `--gpu`,
+`--mode off` for `--no-gpu`:
+
+```bash
+"$(uv tool dir)/xblick-rtdetrv4/bin/python" -m xblick_rtdetrv4.runtime setup --uv "$(command -v uv)" --prog xblick-rtdetrv4
+```
+
 Requirements of the GPU runtime: an NVIDIA driver 580 or newer (CUDA 13), a GPU that CUDA 13 supports (Turing, RTX
 20 series, or newer), Python 3.11 or newer (onnxruntime-gpu 1.32.0 has no wheel for 3.10). NVIDIA's libraries come as
 wheels, so the PC needs no CUDA installation.
 
 ```bash
-uv run xblick-rtdetrv4 --camera test/camera --overlay --device cuda
+xblick-rtdetrv4 --camera test/camera --overlay --device cuda
 ```
 
 With `--device cuda` the node loads ONNX Runtime from the shared directory, and every part of the model runs on the
