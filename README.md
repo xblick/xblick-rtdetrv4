@@ -36,12 +36,12 @@ exists. Without `--overlay` the stream does not exist at all.
 
 | What | Requirement |
 | --- | --- |
-| CPU | an x86-64 PC with Linux. We measured on 4 cores of an AMD EPYC 9335. |
+| CPU | an x86-64 PC with Linux |
 | GPU | none. An NVIDIA GPU is optional, see "On a GPU". |
 | Memory | 0.9 GB (S) to 2.6 GB (X) while the node makes the ONNX file, once per model |
 | Durchblick | 0.5.5 or newer, below 0.6 (Python package `xblick`) |
 | Python | 3.10 to 3.13, which uv installs with the node |
-| Tools for the install | uv and git |
+| Tools for the install | git and uv (step 1 of the installation installs them) |
 | Disk | 1.3 GB for the node's environment with the export's packages. Per model, the checkpoint and the ONNX file: 0.2 GB (S), 0.4 GB (M), 0.6 GB (L) or 1.3 GB (X). |
 
 Model licences:
@@ -58,32 +58,69 @@ checkpoints.
 
 ## Install
 
-Install the node with uv, or clone this repository for development.
+1. Install the prerequisites. After the installation of uv, open a new terminal, so that `uv` is on `PATH`.
 
-### With uv
+   ```bash
+   sudo apt install git
+   wget -qO- https://astral.sh/uv/install.sh | sh
+   ```
 
-```bash
-uv tool install "xblick-rtdetrv4[export] @ git+https://github.com/xblick/xblick-rtdetrv4"
-xblick-rtdetrv4 --download-only
-```
+   A GPU is optional. For `--device cuda`, `nvidia-smi` must print a driver 580 or newer. On Ubuntu,
+   `sudo apt install nvidia-driver-580` and a restart install that driver.
 
-uv puts `xblick-rtdetrv4` on PATH, in an environment of its own, with ONNX Runtime for the CPU, the extra `export`
-(PyTorch for the CPU and the packages that RT-DETRv4's code imports) and a Python 3.10 to 3.13 that uv finds or
-downloads. It resolves the dependencies afresh within the bounds of `pyproject.toml`: `uv.lock` applies only to a
-clone. `xblick-rtdetrv4 --download-only` prepares RT-DETRv4-S in `~/.cache/xblick/rtdetrv4/`, in the two steps
-below. `--model x` prepares another model. For `--device cuda`, add the GPU runtime as [On a GPU](#on-a-gpu) shows.
+2. Install the node and download its model:
 
-`uv tool upgrade xblick-rtdetrv4` updates the node to the newest commit of this repository and the dependencies
-within their bounds. `uv tool uninstall xblick-rtdetrv4` removes the node. The models and the GPU runtime stay in the
-cache directory. The `xblick` command under [Run](#run) is the core's: `uv tool install xblick` puts it on PATH.
+   ```bash
+   uv tool install "xblick-rtdetrv4[export] @ git+https://github.com/xblick/xblick-rtdetrv4"
+   xblick-rtdetrv4 --download-only
+   ```
+
+   uv puts `xblick-rtdetrv4` on `PATH`, in an environment of its own (about 1.3 GB), with ONNX Runtime for the CPU,
+   the extra `export` (PyTorch for the CPU and the packages that RT-DETRv4's code imports) and a Python 3.10 to 3.13
+   that uv finds or downloads. It resolves the dependencies afresh within the bounds of `pyproject.toml`: `uv.lock`
+   applies only to a clone. `xblick-rtdetrv4 --download-only` prints the model's terms and prepares RT-DETRv4-S in
+   `~/.cache/xblick/rtdetrv4/`, in the two steps [below](#what-the-preparation-does). `--model x` prepares another
+   model. For `--device cuda`, add the GPU runtime as [On a GPU](#on-a-gpu) shows.
+
+   `uv tool upgrade xblick-rtdetrv4` updates the node to the newest commit of this repository and the dependencies
+   within their bounds. `uv tool uninstall xblick-rtdetrv4` removes the node. The models and the GPU runtime stay in
+   the cache directory.
+
+3. Install the core's command `xblick` with the viewer, video files and webcams. uv puts it on `PATH`. A second
+   `uv tool install` of xblick with other extras replaces the first and removes what only the first had, so every
+   xblick node names this one line:
+
+   ```bash
+   uv tool install "xblick[rerun,video,cam]>=0.5,<0.6"
+   ```
+
+4. Start the node on photos, without a camera. Take a few JPEG photos of rooms or tables with everyday objects, for
+   example in `~/Pictures`. Run each command in its own terminal. If the PC already runs a Zenoh router (`xblick
+   router` or `zenohd`), leave out the first one.
+
+   ```bash
+   xblick router                                         # the Zenoh router of this PC
+   xblick play "$HOME/Pictures/*.jpg" --camera demo/photos --fps 1 --loop
+   xblick-rtdetrv4 --camera demo/photos --overlay
+   xblick view demo/photos/color demo/photos/rtdetrv4/overlay
+   ```
+
+   `xblick play` shows the photos one per second as the camera `demo/photos`. `xblick view` opens both streams in
+   the browser: each photo, and beside it the same photo with a box, a class name and a score on every object that
+   RT-DETRv4 finds among its 80 COCO classes, such as person, cup, chair or bottle.
 
 ### From a clone
 
 For development, and for the versions that `uv.lock` fixes:
 
 ```bash
+git clone https://github.com/xblick/xblick-rtdetrv4.git
+cd xblick-rtdetrv4
 tools/setup.sh
 ```
+
+When git or uv is missing, the script stops and prints the command that installs it. `tools/setup.sh --help` lists
+the options. In a clone the commands are in `.venv/bin/`.
 
 On a PC with an NVIDIA GPU the script also installs the GPU runtime for `--device cuda` (2.4 GB), unless you add
 `--no-gpu`. [On a GPU](#on-a-gpu) describes the rule.
@@ -116,21 +153,15 @@ The node needs it again only to make the ONNX file anew.
 
 ## Run
 
-Start a router, a camera, the node and a viewer, each in its own terminal. The camera name is an example. In a clone
-the commands are in `.venv/bin/`.
+The node reads the camera that `--camera` names. A webcam works without other nodes: `xblick cam /dev/video0`
+publishes `cam/video0/color`, and `--camera cam/video0` takes it. In a clone the commands are in `.venv/bin/`.
 
 ```bash
-xblick router                                  # the Zenoh router of this PC
-xblick test-camera                             # a test pattern on test/camera/color
-xblick-rtdetrv4 --camera test/camera --overlay
+xblick cam /dev/video0
+xblick-rtdetrv4 --camera cam/video0 --overlay
 # on a PC with an NVIDIA GPU: add --device cuda (see "On a GPU")
-xblick view test/camera/color test/camera/rtdetrv4/overlay
+xblick view cam/video0/color cam/video0/rtdetrv4/overlay
 ```
-
-`xblick view` opens VLC, or offers the browser view at `http://127.0.0.1:8090/`. The test pattern has no objects
-in it. A webcam has: `xblick cam /dev/video0` publishes `cam/video0/color`, and `--camera cam/video0` takes it.
-`xblick cam` needs the core's `cam` extra, which neither install of the node brings. `uv tool install "xblick[cam]"`
-installs the core's command with it.
 
 | Option | Default | Meaning |
 | --- | --- | --- |
@@ -179,11 +210,11 @@ another node that installed it already, reuses it. `uv run`, `uv sync` and `tool
 | `--gpu` | installs the runtime whatever the check says (an image built on a PC without a GPU) |
 | `--no-gpu` | never installs it |
 
-After an install with uv, this command installs the runtime by the same rule. `--mode on` stands for `--gpu`,
-`--mode off` for `--no-gpu`:
+After an install with uv, which has no `tools/setup.sh`, the node's second command installs the runtime. It
+checks for no GPU first, so run it on a PC whose `nvidia-smi` prints a driver 580 or newer:
 
 ```bash
-"$(uv tool dir)/xblick-rtdetrv4/bin/python" -m xblick_rtdetrv4.runtime setup --uv "$(command -v uv)" --prog xblick-rtdetrv4
+xblick-rtdetrv4-gpu-runtime install
 ```
 
 Requirements of the GPU runtime: an NVIDIA driver 580 or newer (CUDA 13), a GPU that CUDA 13 supports (Turing, RTX
@@ -191,7 +222,7 @@ Requirements of the GPU runtime: an NVIDIA driver 580 or newer (CUDA 13), a GPU 
 wheels, so the PC needs no CUDA installation.
 
 ```bash
-xblick-rtdetrv4 --camera test/camera --overlay --device cuda
+xblick-rtdetrv4 --camera demo/photos --overlay --device cuda
 ```
 
 With `--device cuda` the node loads ONNX Runtime from the shared directory, and every part of the model runs on the
@@ -199,7 +230,8 @@ GPU. A model that the GPU cannot run whole is an error, never a silent switch to
 prints "preparing the GPU" at once, then the start line, for example "model on cuda:0; ... on the CPU". Loading CUDA
 and the first computation can take a while on the first start. Ctrl-C and SIGTERM end the node during that time too.
 
-Without the GPU runtime, `--device cuda` ends the start with one line that names `tools/setup.sh --gpu`. When CUDA
+Without the GPU runtime, `--device cuda` ends the start with one line that names `xblick-rtdetrv4-gpu-runtime
+install` and, for a clone, `tools/setup.sh --gpu`. When CUDA
 cannot be loaded, for example with an older driver, the line gives ONNX Runtime's message and the libraries that failed
 to load. With `--device cuda:1` or another GPU than 0, ONNX Runtime 1.32 prints one warning, "No registered plugin EP
 device found for 'CUDAExecutionProvider' with device_id=1". It is harmless: ONNX Runtime then uses its CUDA provider

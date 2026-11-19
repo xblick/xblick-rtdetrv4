@@ -1,6 +1,6 @@
 [project]
 name = "xblick-rtdetrv4"
-version = "0.1.2"
+version = "0.1.3"
 description = "RT-DETRv4 (real-time object detector, COCO's 80 classes) as a Durchblick node, with ONNX Runtime on the CPU or a GPU"
 readme = "README.md"
 license = "Apache-2.0"
@@ -32,6 +32,7 @@ export = [
 
 [project.scripts]
 xblick-rtdetrv4 = "xblick_rtdetrv4.node:main"
+xblick-rtdetrv4-gpu-runtime = "xblick_rtdetrv4.runtime:tool_main"  # the GPU runtime after uv tool install
 
 [dependency-groups]
 dev = ["pytest>=8", "ruff>=0.6"]
